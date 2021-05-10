@@ -1,6 +1,4 @@
-//Sample using LiquidCrystal library
 #include <LiquidCrystal.h>
-
 
 //LCD_INIT============================================
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
@@ -26,18 +24,17 @@ int read_LCD_buttons() {
 //GLOBALS===============================================
 #define RX_PH     A1
 #define MOTORGATE 2
-#define RUN       0
-#define WAIT      1
-#define SET       2
-#define CAL       3
-int statSys = WAIT;
+
+enum {sRUN, sWait, sSet, sCal};
+int systemState = sWait;
+
+enum {red, yellow, green};
+int runState;
+
 float phSoll = 5.5;
-float phLast;
+float phIst, phLast;
 int valueDelay = 0;
 bool noPrell;
-
-//MYMETHODS===============================================
-//struct STROK {};
 
 //SETUP===============================================
 void setup()
@@ -58,25 +55,20 @@ void setup()
   lcd.print("ph Ist");
 }
 
-//LOOP==========================================================
-void loop()
-{             //get PhIst ================   
+void bufferPh()
+{
   int arr_buffer[10];
   int temp = 0;
   unsigned long int avgVal = 0;
 
-  for (int i = 0; i < 10; i++)
-  {
+  for (int i = 0; i < 10; i++)  {
     arr_buffer[i] = analogRead(RX_PH);
     delay(10);
   }
 
-  for (int i = 0; i < 9; i++)
-  {
-    for (int j = i + 1; j < 10; j++)
-    {
-      if (arr_buffer[i] > arr_buffer[j])
-      {
+  for (int i = 0; i < 9; i++)                 {
+    for (int j = i + 1; j < 10; j++)          {
+      if (arr_buffer[i] > arr_buffer[j])      {
         temp = arr_buffer[i];
         arr_buffer[i] = arr_buffer[j];
         arr_buffer[j] = temp;
@@ -88,158 +80,153 @@ void loop()
     avgVal += arr_buffer[i];
 
   float volt = (float)avgVal * 5.0 / 1024 / 6;
-  float phIst = 2.19 * volt + 2.85;
+  phIst = 2.19 * volt + 2.85;
+
+  //10 andere werte nötig für neun wert in phLast
+  if (phIst != phLast)    valueDelay++;
+  else                    valueDelay = 0;
   
- 
-  //WRITE ================
-  if (phIst != phLast)
-    valueDelay++;
-  else
-    valueDelay = 0;
-  if (valueDelay > 10)       //10 andere werte nötig für aktuall
-  {
-    lcd.setCursor(0, 1);
-    lcd.print(phIst);
+  if (valueDelay > 10)   {
     valueDelay = 0;
     phLast = phIst;
   }
+}
 
+void checkPhValue ()
+{
+  lcd.setCursor(8, 0);
   
-
-  //CONTROLL ================
-  //statSys = RUN;      //DEBUG!!!! Net vergessn!!
-  switch (statSys)
+  if (phLast > phSoll)
   {
+    if (phSoll + 0.5 < phLast)
+    {      
+      //overThreshold red
+      runState = red;      
+      digitalWrite(MOTORGATE, HIGH);
+      lcd.print("Pumpt   ");
+      Serial.println("Motor on, over Threesh");
+    } else    {
+      
+      //underThreshold yellow
+      runState = yellow;
+      digitalWrite(MOTORGATE, LOW);
+      lcd.print("In Range");
+      Serial.println("Motor off, under Thressh");
+    }
+  }  else  {
+    
+    //unterSoll green
+    runState = green;
+    digitalWrite(MOTORGATE, LOW);
+    lcd.print("Halte");
+    Serial.println("Motor off");
+  }
+}
 
-    case RUN:
+void resetLCD()
+{
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("ph Ist");
+  lcd.setCursor(0, 1);
+  lcd.print(phIst);
+}
+//LOOP==========================================================
+void loop()
+{
+  bufferPh();
+
+  lcd.setCursor(0, 1);
+  lcd.print(phLast);
+
+  //systemState = sCal;
+
+  lcd.setCursor(8, 1);
+  switch (systemState)
+  {
+    case sRUN:
       {
+        checkPhValue();
         lcd.setCursor(8, 1);
         lcd.print(phSoll);
         lcd.setCursor(12, 1);
         lcd.print("+0.5");
-
-        if (phIst > phSoll)
-        {
-
-          if (phSoll + 0.5 < phIst)
-          {
-            digitalWrite(MOTORGATE, HIGH);
-            Serial.println("Motor on, over Threesh");
-            lcd.setCursor(8, 0);
-            lcd.print("Running");
-          } else
-          {
-            digitalWrite(MOTORGATE, LOW);
-            Serial.println("Motor off, under Thressh");
-            lcd.setCursor(8, 0);
-            lcd.print("In Range");
-          }
-        }
-        else
-        {
-          digitalWrite(MOTORGATE, LOW);
-          Serial.println("Motor off");
-          lcd.setCursor(8, 0);
-          lcd.print("Halte");
-        }
         break;
       }
 
-    case WAIT:
+    case sWait:
       {
         digitalWrite(MOTORGATE, LOW);
         Serial.println("Wait Status");
+        lcd.print("<-Lauf<<");
         lcd.setCursor(8, 0);
         lcd.print("Warten..");
-        lcd.setCursor(8, 1);
-        lcd.print("<-Run|->");
+
         break;
       }
 
-    case SET:
+    case sSet:
       {
+        lcd.print(phSoll);
         lcd.setCursor(8, 0);
         lcd.print("Set Soll");
-        lcd.setCursor(8, 1);
-        lcd.print(phSoll);
+
         break;
       }
 
-    case CAL:
+    case sCal:
       {
+
+        lcd.print("Start?");
         lcd.setCursor(8, 0);
         lcd.print("pH Cal");
-        lcd.setCursor(8, 1);
-        lcd.print("Soon");
+
         break;
       }
-
   }
-
-
-
-
-
 
   //BUTTONS ================
   lcd_key = read_LCD_buttons();
   switch (lcd_key)
   {
 
-    case btnRIGHT:
-      {
-        if (noPrell == false)
-          break;
-        if (statSys >= 3)
-          break;
-        statSys++;
-        noPrell = false;
-        break;
+    case btnRIGHT:      {
+        if (noPrell == false)          break;
+        if (systemState >= 3)          break;
+        systemState++;
+        resetLCD();
+        noPrell = false;               break;
       }
 
-    case btnLEFT:
-      {
-        if (noPrell == false)
-          break;
-        if (statSys <= 0)
-          break;
-        statSys--;
-        noPrell = false;
-        break;
+    case btnLEFT:      {
+        if (noPrell == false)          break;
+        if (systemState <= 0)          break;
+        systemState--;
+        resetLCD();
+        noPrell = false;               break;
       }
 
-    case btnUP:
-      {
-        if (noPrell == false)
-          break;
-        if (statSys != 2)
-          break;
-        if (phSoll >= 6.9)
-          break;
+    case btnUP:      {
+        if (noPrell == false)          break;
+        if (systemState != 2)          break;
+        if (phSoll >= 6.9)             break;
         phSoll += 0.1;
-        noPrell = false;
-        break;
+        noPrell = false;               break;
       }
-    case btnDOWN:
-      {
-        if (noPrell == false)
-          break;
-        if (statSys != 2)
-          break;
-        if (phSoll <= 5.0)
-          break;
+
+    case btnDOWN:      {
+        if (noPrell == false)          break;
+        if (systemState != 2)          break;
+        if (phSoll <= 5.0)             break;
         phSoll -= 0.1;
-        noPrell = false;
-        break;
+        noPrell = false;               break;
       }
 
-    case btnNONE:
-      {
-        noPrell = true;
-        break;
+    case btnNONE:      {
+        noPrell = true;                break;
       }
 
-    case btnSELECT:   break;
+    case btnSELECT:                    break;
   }
 
   //DEBUG SERIAL ================
