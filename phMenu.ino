@@ -21,8 +21,6 @@ int read_LCD_buttons() {
   return btnNONE;  // when all others fail, return this...
 }
 
-
-
 //GLOBALS===============================================
 #define RX_PH     A1
 #define MOTORGATE 2
@@ -41,11 +39,9 @@ int nSmooth = 20;
 int incBuffer = 0;
 float vecBuffer = 0;
 
-int valueDelay = 0;
-int valueRefreshRate = 1;
-bool noPrell = true;
+int incStateCheck = 0;
 
-//MYMethodes===============================================
+bool noPrell = true;
 
 //SETUP===============================================
 void setup()
@@ -66,61 +62,6 @@ void setup()
   redrawLCD();
 }
 
-void bufferPh()
-{
-  int sampleBuffer[10];
-  int temp = 0;
-  unsigned long int avgVal = 0;
-
-  for (int i = 0; i < 10; i++)  {
-    sampleBuffer[i] = analogRead(RX_PH);
-    delay(10);
-  }
-
-  for (int i = 0; i < 9; i++)                 {
-    for (int j = i + 1; j < 10; j++)          {
-      if (sampleBuffer[i] > sampleBuffer[j])      {
-        temp = sampleBuffer[i];
-        sampleBuffer[i] = sampleBuffer[j];
-        sampleBuffer[j] = temp;
-      }
-    }
-  }
-  for (int i = 2; i < 8; i++)
-    avgVal += sampleBuffer[i];
-
-  float volt = (float)avgVal * 5.0 / 1024 / 6;
-  phIst = 2.19 * volt + 2.85;
-
-
-  vecBuffer += phIst;
-  incBuffer++;
-
-  if (incBuffer >= nSmooth)
-  {
-
-    phLast = vecBuffer / nSmooth;
-    incBuffer = 0;
-    vecBuffer = 0;
-    
-
-    Serial.print("phLast   ");
-    Serial.println(phLast);
-
-        Serial.println("huhu");
-
-  }
-
-
-
-  Serial.print("phIst   ");
-  Serial.print(phIst);
-  Serial.print("    vecBuffer   ");
-  Serial.println(vecBuffer);
-
-
-}
-
 //LOOP==========================================================
 void loop()
 {
@@ -133,39 +74,12 @@ void loop()
     redrawLCD();
   }
 
-  //Serial.println(valueDelay);
-
-  //phLast = 6.0;
-
-
-  switch (systemState)  {
-    case sRun:      {
-        if (phLast >= phSoll + phSollOffset) {
-          runState = sRed;
-          digitalWrite(MOTORGATE, HIGH);
-          Serial.println("===sRed Motor On");
-        }
-        else if (phLast >= phSoll) {
-          runState = sYellow;
-          digitalWrite(MOTORGATE, LOW);
-          Serial.println("===sYellow Motor Off");
-        }
-        else if (phLast < phSoll) {
-          runState = sGreen;
-          digitalWrite(MOTORGATE, LOW);
-          Serial.println("===sGreen Motor Off");
-        }                                    break;
-      }
-    case sWait:      {
-        digitalWrite(MOTORGATE, LOW);        break;
-      }
-    case sSet:      {
-        digitalWrite(MOTORGATE, LOW);        break;
-      }
-    case sCal:      {
-        digitalWrite(MOTORGATE, LOW);        break;
-      }
-    default: digitalWrite(MOTORGATE, LOW);
+  incStateCheck++;
+  if (systemState == sRun && incStateCheck >= 50)
+  {
+    Serial.println("CHEEEECK!!!!");
+    incStateCheck = 0;
+    checkState();
   }
 
   lcd_key = read_LCD_buttons();
@@ -210,6 +124,75 @@ void loop()
     lcd.print(millis()/1000);      // display seconds elapsed since power-up
   */
 
+}
+
+void bufferPh()
+{
+  int sampleBuffer[10];
+  int temp = 0;
+  unsigned long int avgVal = 0;
+
+  for (int i = 0; i < 10; i++)  {
+    sampleBuffer[i] = analogRead(RX_PH);
+    delay(10);
+  }
+
+  for (int i = 0; i < 9; i++)                 {
+    for (int j = i + 1; j < 10; j++)          {
+      if (sampleBuffer[i] > sampleBuffer[j])      {
+        temp = sampleBuffer[i];
+        sampleBuffer[i] = sampleBuffer[j];
+        sampleBuffer[j] = temp;
+      }
+    }
+  }
+  for (int i = 2; i < 8; i++)
+    avgVal += sampleBuffer[i];
+
+  float volt = (float)avgVal * 5.0 / 1024 / 6;
+  phIst = 2.19 * volt + 2.85;
+
+  vecBuffer += phIst;
+  incBuffer++;
+  if (incBuffer >= nSmooth)
+  {
+    phLast = vecBuffer / nSmooth;
+    incBuffer = 0;
+    vecBuffer = 0;
+  }
+}
+
+void checkState()
+{
+  switch (systemState)  {
+    case sRun:      {
+        if (phLast >= phSoll + phSollOffset) {
+          runState = sRed;
+          digitalWrite(MOTORGATE, HIGH);
+        }
+        else if (phLast >= phSoll) {
+          runState = sYellow;
+          digitalWrite(MOTORGATE, LOW);
+        }
+        else if (phLast < phSoll) {
+          runState = sGreen;
+          digitalWrite(MOTORGATE, LOW);
+        } break;
+      }
+    case sWait:      {
+        digitalWrite(MOTORGATE, LOW);
+        break;
+      }
+    case sSet:      {
+        digitalWrite(MOTORGATE, LOW);
+        break;
+      }
+    case sCal:      {
+        digitalWrite(MOTORGATE, LOW);
+        break;
+      }
+    default: digitalWrite(MOTORGATE, LOW);
+  }
 }
 
 void redrawLCD()
