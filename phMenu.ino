@@ -244,7 +244,5 @@ void bufferPh()
   }
 }
 
-
-
 //to clear the LCD display, use the comment below
 //lcd.clear();
