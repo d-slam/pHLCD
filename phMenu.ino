@@ -78,9 +78,7 @@ void loop()
     checkState();
 
   checkButtons();
-
 }
-
 //MyMethodes==========================================================
 void checkButtons()
 {
@@ -177,8 +175,6 @@ void redrawLCD()
   }
 }
 
-
-
 void checkState()
 {
   incStateCheck = 0;
@@ -243,7 +239,8 @@ void bufferPh()
   if (incBuffer >= nSmooth)
   {
     phLast = vecBuffer / nSmooth;
-    incBuffer, vecBuffer = 0;
+    incBuffer = 0;
+    vecBuffer = 0;
   }
 }
 
