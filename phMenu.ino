@@ -82,6 +82,13 @@ void loop()
     checkState();
   }
 
+  checkButtons();
+
+
+}
+
+void checkButtons()
+{
   lcd_key = read_LCD_buttons();
   switch (lcd_key)
   {
@@ -118,12 +125,6 @@ void loop()
       }
     case btnSELECT:                    break;
   }
-
-  /*
-    lcd.setCursor(9,1);            // move cursor to second line "1" and 9 spaces over
-    lcd.print(millis()/1000);      // display seconds elapsed since power-up
-  */
-
 }
 
 void bufferPh()
