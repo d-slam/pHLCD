@@ -65,28 +65,20 @@ void setup()
 //LOOP==========================================================
 void loop()
 {
-
   bufferPh();
 
   if (incBuffer >= nSmooth - 1 || (noPrell == false && adc_key_in != 1023) )
-  {
-    Serial.println("REDRAW");
     redrawLCD();
-  }
 
   incStateCheck++;
   if (systemState == sRun && incStateCheck >= 50)
-  {
-    Serial.println("CHEEEECK!!!!");
-    incStateCheck = 0;
-    checkState();
-  }
+    checkState();    
 
   checkButtons();
 
-
 }
 
+//MyMethodes==========================================================
 void checkButtons()
 {
   lcd_key = read_LCD_buttons();
@@ -158,13 +150,14 @@ void bufferPh()
   if (incBuffer >= nSmooth)
   {
     phLast = vecBuffer / nSmooth;
-    incBuffer = 0;
-    vecBuffer = 0;
+    incBuffer, vecBuffer = 0;
   }
+
 }
 
 void checkState()
 {
+  incStateCheck = 0;
   switch (systemState)  {
     case sRun:      {
         if (phLast >= phSoll + phSollOffset) {
