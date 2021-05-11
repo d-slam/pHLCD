@@ -31,6 +31,9 @@ int systemState = sWait;
 enum {sRed, sYellow, sGreen};
 int runState = sGreen;
 
+float calDelta = 2.19;
+float calOffset = 2.85;
+
 float phSoll = 5.5;
 float phSollOffset = 0.5;
 float phIst, phLast = 0.0;
@@ -117,75 +120,6 @@ void checkButtons()
   }
 }
 
-void bufferPh()
-{
-  int sampleBuffer[10];
-  int temp = 0;
-  unsigned long int avgVal = 0;
-
-  for (int i = 0; i < 10; i++)  {
-    sampleBuffer[i] = analogRead(RX_PH);
-    delay(10);
-  }
-
-  for (int i = 0; i < 9; i++)                 {
-    for (int j = i + 1; j < 10; j++)          {
-      if (sampleBuffer[i] > sampleBuffer[j])  {
-        temp = sampleBuffer[i];
-        sampleBuffer[i] = sampleBuffer[j];
-        sampleBuffer[j] = temp;
-      }
-    }
-  }
-  for (int i = 2; i < 8; i++)
-    avgVal += sampleBuffer[i];
-
-  float volt = (float)avgVal * 5.0 / 1024 / 6;
-  phIst = 2.19 * volt + 2.85;
-
-  vecBuffer += phIst;
-  incBuffer++;
-  if (incBuffer >= nSmooth)
-  {
-    phLast = vecBuffer / nSmooth;
-    incBuffer, vecBuffer = 0;
-  }
-}
-
-void checkState()
-{
-  incStateCheck = 0;
-  switch (systemState)  {
-    case sRun:      {
-        if (phLast >= phSoll + phSollOffset) {
-          runState = sRed;
-          digitalWrite(MOTORGATE, HIGH);
-        }
-        else if (phLast >= phSoll) {
-          runState = sYellow;
-          digitalWrite(MOTORGATE, LOW);
-        }
-        else if (phLast < phSoll) {
-          runState = sGreen;
-          digitalWrite(MOTORGATE, LOW);
-        } break;
-      }
-    case sWait:      {
-        digitalWrite(MOTORGATE, LOW);
-        break;
-      }
-    case sSet:      {
-        digitalWrite(MOTORGATE, LOW);
-        break;
-      }
-    case sCal:      {
-        digitalWrite(MOTORGATE, LOW);
-        break;
-      }
-    default: digitalWrite(MOTORGATE, LOW);
-  }
-}
-
 void redrawLCD()
 {
   lcd.clear();
@@ -242,6 +176,78 @@ void redrawLCD()
       }
   }
 }
+
+
+
+void checkState()
+{
+  incStateCheck = 0;
+  switch (systemState)  {
+    case sRun:        {
+        if (phLast >= phSoll + phSollOffset) {
+          runState = sRed;
+          digitalWrite(MOTORGATE, HIGH);
+        }
+        else if (phLast >= phSoll) {
+          runState = sYellow;
+          digitalWrite(MOTORGATE, LOW);
+        }
+        else if (phLast < phSoll) {
+          runState = sGreen;
+          digitalWrite(MOTORGATE, LOW);
+        } break;
+      }
+    case sWait:      {
+        digitalWrite(MOTORGATE, LOW);
+        break;
+      }
+    case sSet:      {
+        digitalWrite(MOTORGATE, LOW);
+        break;
+      }
+    case sCal:      {
+        digitalWrite(MOTORGATE, LOW);
+        break;
+      }
+    default: digitalWrite(MOTORGATE, LOW);
+  }
+}
+
+void bufferPh()
+{
+  int sampleBuffer[10];
+  int temp = 0;
+  unsigned long int avgVal = 0;
+
+  for (int i = 0; i < 10; i++)  {
+    sampleBuffer[i] = analogRead(RX_PH);
+    delay(10);
+  }
+
+  for (int i = 0; i < 9; i++)                 {
+    for (int j = i + 1; j < 10; j++)          {
+      if (sampleBuffer[i] > sampleBuffer[j])  {
+        temp = sampleBuffer[i];
+        sampleBuffer[i] = sampleBuffer[j];
+        sampleBuffer[j] = temp;
+      }
+    }
+  }
+  for (int i = 2; i < 8; i++)
+    avgVal += sampleBuffer[i];
+
+  phIst = calDelta * ((float)avgVal * 5.0 / 1024 / 6) + calOffset;
+
+  vecBuffer += phIst;
+  incBuffer++;
+  if (incBuffer >= nSmooth)
+  {
+    phLast = vecBuffer / nSmooth;
+    incBuffer, vecBuffer = 0;
+  }
+}
+
+
 
 //to clear the LCD display, use the comment below
 //lcd.clear();
