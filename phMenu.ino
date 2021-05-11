@@ -49,7 +49,7 @@ void setup()
   pinMode(MOTORGATE, OUTPUT);
 
   Serial.begin(9600);
-  Serial.println("Ready");
+  Serial.println("Hüü");
 
   lcd.begin(16, 2);              // <== WICHTIG!!
   lcd.setCursor(0, 0);
@@ -72,7 +72,7 @@ void loop()
 
   incStateCheck++;
   if (systemState == sRun && incStateCheck >= 50)
-    checkState();    
+    checkState();
 
   checkButtons();
 
@@ -88,14 +88,12 @@ void checkButtons()
         if (noPrell == false)          break;
         if (systemState >= 3)          break;
         systemState++;
-
         noPrell = false;               break;
       }
     case btnLEFT:      {
         if (noPrell == false)          break;
         if (systemState <= 0)          break;
         systemState--;
-
         noPrell = false;               break;
       }
     case btnUP:      {
@@ -132,7 +130,7 @@ void bufferPh()
 
   for (int i = 0; i < 9; i++)                 {
     for (int j = i + 1; j < 10; j++)          {
-      if (sampleBuffer[i] > sampleBuffer[j])      {
+      if (sampleBuffer[i] > sampleBuffer[j])  {
         temp = sampleBuffer[i];
         sampleBuffer[i] = sampleBuffer[j];
         sampleBuffer[j] = temp;
@@ -152,7 +150,6 @@ void bufferPh()
     phLast = vecBuffer / nSmooth;
     incBuffer, vecBuffer = 0;
   }
-
 }
 
 void checkState()
