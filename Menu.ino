@@ -21,29 +21,10 @@ int read_LCD_buttons() {
   return btnNONE;  // when all others fail, return this...
 }
 
-
+//GLOBALS===============================================
 #define RX_PH     A1
 #define MOTORGATE 2
 
-
-void setup()
-{
-  pinMode(MOTORGATE, OUTPUT);
-
-  Serial.begin(9600);
-  Serial.println("Hüü");
-
-  lcd.begin(16, 2);              // <== WICHTIG!!
-  lcd.setCursor(0, 0);
-  lcd.print("ph-Meter");
-  lcd.setCursor(0, 1);
-  lcd.print("><(((°>");
-  delay(1500);
-
-  redrawLCD();
-}
-
-//GLOBALS===============================================
 typedef enum {SYS_RUN,  SYS_WAIT,  SYS_SET_SOLL, SYS_SET_THRES,  SYS_CAL} statesSystem;
 statesSystem SYSstate = SYS_WAIT;
 
@@ -73,6 +54,20 @@ float phIst, phLast = 0.0;
 int nSmooth = 20;
 int incBuffer = 0;
 float vecBuffer = 0;
+
+void setup()
+{
+  pinMode(MOTORGATE, OUTPUT);
+
+  Serial.begin(9600);
+  Serial.println("Hüü");
+
+  lcd.begin(16, 2);              // <== WICHTIG!!
+
+  lcdSplashscreen("ph-Meter", 0, 0, "><(((°>", 0, 1, 1500);
+
+  redrawLCD();
+}
 
 //LOOP==========================================================
 void loop()
@@ -108,6 +103,71 @@ void loop()
 }
 
 //MyMethodes==========================================================
+void redrawLCD()
+{
+  lcd.clear();
+  lcdWriteAtXY("ph Ist", 0, 0);
+  lcdWriteFloatAtXY(phLast, 0, 1);
+
+  switch (SYSstate)
+  {
+    case SYS_RUN :      lcdWriteTwoLines("sRUN", 8, 0, "phSoll", 8, 1);      break;
+    case SYS_WAIT :      lcdWriteTwoLines("sWait", 8, 0, "<-Go<<", 8, 1);      break;
+
+    case SYS_SET_SOLL :
+      lcdWriteAtXY("setSoll", 8, 0);
+      lcdWriteFloatAtXY(phSoll, 8, 1);
+      break;
+
+    case SYS_SET_THRES :
+      lcdWriteAtXY("setThres", 8, 0);
+      lcdWriteFloatAtXY(phSollThres, 8, 1);      
+      break;
+
+    case SYS_CAL :
+      lcd.clear();
+      switch (CALstate)
+      {
+        case CAL_START:         lcdWriteTwoLines("[SELECT]", 8, 0, "start Cal?", 8, 1);               break;
+        case CAL_PH4 :          lcdWriteTwoLines("Cal", 8, 0, "->ph4", 8, 1);                         break;
+        case CAL_PH7 :          lcdWriteTwoLines("Cal", 8, 0, "->ph7", 8, 1);                           break;
+        case CAL_CONF :         lcdWriteTwoLines("[LEFT]  [SELECT]", 0, 0, "CANCEL?   apply?", 0, 1);   break;
+        case CAL_OK :   lcdSplashscreen("Callibration", 0, 0, "Complette!", 6, 1, 1500);  setMenu(btnSELECT);   break; //wenni des net moch hängi in "call complette" screen bissi iwos druck....?!?!
+      }
+      break;
+  }
+}
+
+void lcdSplashscreen(const char *stringA, uint8_t xA, uint8_t yA, const char *stringB, uint8_t xB, uint8_t yB, int tDelay)
+{
+  lcd.clear();
+  lcd.setCursor(xA, yA);
+  lcd.print(stringA);
+  lcd.setCursor(xB, yB);
+  lcd.print(stringB);
+  delay(tDelay);
+}
+
+void lcdWriteAtXY(const char *string, uint8_t x, uint8_t y)
+{
+  lcd.setCursor(x, y);
+  lcd.print(string);
+}
+
+void lcdWriteTwoLines(const char *stringA, uint8_t xA, uint8_t yA, const char *stringB, uint8_t xB, uint8_t yB)
+{
+  lcd.setCursor(xA, yA);
+  lcd.print(stringA);
+  lcd.setCursor(xB, yB);
+  lcd.print(stringB);
+}
+
+void lcdWriteFloatAtXY(float value, uint8_t x, uint8_t y)
+{
+  lcd.setCursor(x, y);
+  lcd.print(value);
+}
+
 void checkButtons()
 {
   lcd_key = read_LCD_buttons();
@@ -177,102 +237,13 @@ void setMenu(int keyPressed)
           if (keyPressed == btnLEFT)          CALstate = CAL_START;
           break;
         case CAL_OK:
-          if (keyPressed == btnSELECT)        SYSstate = SYS_WAIT;  CALstate = CAL_PH4;       break;
-      }
-      break;
-  }
-}
-
-void redrawLCD()
-{
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("ph Ist");
-  lcd.setCursor(0, 1);
-  lcd.print(phLast);
-
-  switch (SYSstate)
-  {
-    case SYS_RUN :
-      lcd.setCursor(8, 0);
-      lcd.print("sRUN");
-      lcd.setCursor(8, 1);
-      lcd.print("phSoll");
-      break;
-
-    case SYS_WAIT :
-      lcd.setCursor(8, 0);
-      lcd.print("sWait");
-      lcd.setCursor(8, 1);
-      lcd.print("<-Lauf<<");
-      break;
-
-    case SYS_SET_SOLL :
-      lcd.setCursor(8, 0);
-      lcd.print("setSoll");
-      lcd.setCursor(8, 1);
-      lcd.print(phSoll);
-      break;
-
-    case SYS_SET_THRES :
-      lcd.setCursor(8, 0);
-      lcd.print("setThresh");
-      lcd.setCursor(8, 1);
-      lcd.print(phSollThres);
-      break;
-
-    case SYS_CAL :
-      switch (CALstate)
-      {
-        case CAL_START:
-          lcd.clear();
-          lcd.setCursor(8, 0);
-          lcd.print("[SELECT]");
-          lcd.setCursor(8, 1);
-          lcd.print("Start Cali");
-          break;
-
-        case CAL_PH4 :
-          lcd.clear();
-          lcd.setCursor(8, 0);
-          lcd.print("sCal");
-          lcd.setCursor(8, 1);
-          lcd.print("->ph4 ?");
-          break;
-
-        case CAL_PH7 :
-          lcd.clear();
-          lcd.setCursor(8, 0);
-          lcd.print("sCal");
-          lcd.setCursor(8, 1);
-          lcd.print("->ph7 ?");
-          break;
-
-        case CAL_CONF :
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("[LEFT]");
-          lcd.setCursor(0, 1);
-          lcd.print("CANCEL");
-          lcd.setCursor(8, 0);
-          lcd.print("[SELECT]");
-          lcd.setCursor(8, 1);
-          lcd.print("apply?");
-          break;
-
-        case CAL_OK :
-          lcd.clear();
-          lcd.setCursor(0, 0);
-          lcd.print("Callibration");
-          lcd.setCursor(8, 1);
-          lcd.print("Complette");
+          CALstate = CAL_PH4;
+          SYSstate = SYS_WAIT;
           break;
       }
       break;
   }
 }
-
-
 
 void incSoll()
 {
