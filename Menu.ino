@@ -44,7 +44,7 @@ void setup()
 }
 
 //GLOBALS===============================================
-typedef enum {SYS_RUN,  SYS_WAIT,  SYS_SET,  SYS_CAL} statesSystem;
+typedef enum {SYS_RUN,  SYS_WAIT,  SYS_SET_SOLL, SYS_SET_THRES,  SYS_CAL} statesSystem;
 statesSystem SYSstate = SYS_WAIT;
 
 typedef enum {CAL_START, CAL_PH4,  CAL_PH7,  CAL_CONF, CAL_OK} statesCal;
@@ -67,7 +67,7 @@ float volt7 = 0.0;
 float volt = 0.0;
 
 float phSoll = 5.5;
-float phSollOffset = 0.5;
+float phSollThres = 0.5;
 float phIst, phLast = 0.0;
 
 int nSmooth = 20;
@@ -77,24 +77,25 @@ float vecBuffer = 0;
 //LOOP==========================================================
 void loop()
 {
-  checkButtons();
   bufferPh();
-  redrawLCD();
+  checkButtons();     //called setMenu()
 
   switch (SYSstate)
   {
     case SYS_RUN :            break;
     case SYS_WAIT :           break;
-
-    case SYS_SET:
+    case SYS_SET_SOLL:
       if (incFlag == true)        incSoll();
       if (decFlag == true)        decSoll();
       break;
-
+    case SYS_SET_THRES:
+      if (incFlag == true)        incThres();
+      if (decFlag == true)        decThres();
+      break;
     case SYS_CAL:
       switch (CALstate)
       {
-        case CAL_START:          break;
+        case CAL_START:         break;
         case CAL_PH4:          break;
         case CAL_PH7:          break;
         case CAL_CONF:          break;
@@ -102,61 +103,11 @@ void loop()
       }
       break;
   }
+
+  redrawLCD();
 }
 
 //MyMethodes==========================================================
-void setMenu(int keyPressed)
-{
-  switch (SYSstate)
-  {
-    case SYS_RUN :
-      if (keyPressed == btnRIGHT)        SYSstate = SYS_WAIT;
-      break;
-
-    case SYS_WAIT :
-      if (keyPressed == btnRIGHT)        SYSstate = SYS_SET;
-      if (keyPressed == btnLEFT)        SYSstate = SYS_RUN;
-      break;
-
-    case SYS_SET:
-      if (keyPressed == btnRIGHT)        SYSstate = SYS_CAL;
-      if (keyPressed == btnLEFT)        SYSstate = SYS_WAIT;
-
-      if (keyPressed == btnUP)        incFlag = true;
-      if (keyPressed == btnDOWN)        decFlag = true;
-      break;
-
-    case SYS_CAL:
-      switch (CALstate)
-      {
-        case CAL_START:
-          if (keyPressed == btnLEFT)        SYSstate = SYS_SET;
-          if (keyPressed == btnSELECT)        CALstate = CAL_PH4;
-          break;
-
-        case CAL_PH4:
-          if (keyPressed == btnSELECT)        CALstate = CAL_PH7;
-          break;
-
-        case CAL_PH7:
-          if (keyPressed == btnSELECT)        CALstate = CAL_CONF;
-          break;
-
-        case CAL_CONF:
-          if (keyPressed == btnSELECT)        CALstate = CAL_OK;
-          if (keyPressed == btnLEFT)          CALstate = CAL_START;
-          break;
-
-        case CAL_OK:
-          if (keyPressed == btnSELECT)        SYSstate = SYS_WAIT;
-          CALstate = CAL_PH4;
-          break;
-      }
-      break;
-  }
-}
-
-
 void checkButtons()
 {
   lcd_key = read_LCD_buttons();
@@ -191,6 +142,47 @@ void checkButtons()
   }
 }
 
+void setMenu(int keyPressed)
+{
+  switch (SYSstate)
+  {
+    case SYS_RUN :      if (keyPressed == btnRIGHT)        SYSstate = SYS_WAIT;      break;
+    case SYS_WAIT :
+      if (keyPressed == btnRIGHT)        SYSstate = SYS_SET_SOLL;
+      if (keyPressed == btnLEFT)        SYSstate = SYS_RUN;
+      break;
+    case SYS_SET_SOLL:
+      if (keyPressed == btnRIGHT)        SYSstate = SYS_SET_THRES;
+      if (keyPressed == btnLEFT)        SYSstate = SYS_WAIT;
+      if (keyPressed == btnUP)        incFlag = true;
+      if (keyPressed == btnDOWN)        decFlag = true;
+      break;
+    case SYS_SET_THRES:
+      if (keyPressed == btnRIGHT)        SYSstate = SYS_CAL;
+      if (keyPressed == btnLEFT)        SYSstate = SYS_SET_SOLL;
+      if (keyPressed == btnUP)        incFlag = true;
+      if (keyPressed == btnDOWN)        decFlag = true;
+      break;
+    case SYS_CAL:
+      switch (CALstate)
+      {
+        case CAL_START:
+          if (keyPressed == btnLEFT)        SYSstate = SYS_SET_THRES;
+          if (keyPressed == btnSELECT)        CALstate = CAL_PH4;
+          break;
+        case CAL_PH4:          if (keyPressed == btnSELECT)        CALstate = CAL_PH7;          break;
+        case CAL_PH7:          if (keyPressed == btnSELECT)        CALstate = CAL_CONF;          break;
+        case CAL_CONF:
+          if (keyPressed == btnSELECT)        CALstate = CAL_OK;
+          if (keyPressed == btnLEFT)          CALstate = CAL_START;
+          break;
+        case CAL_OK:
+          if (keyPressed == btnSELECT)        SYSstate = SYS_WAIT;  CALstate = CAL_PH4;       break;
+      }
+      break;
+  }
+}
+
 void redrawLCD()
 {
   lcd.clear();
@@ -210,17 +202,23 @@ void redrawLCD()
 
     case SYS_WAIT :
       lcd.setCursor(8, 0);
-      //writeLCD("sWait");
       lcd.print("sWait");
       lcd.setCursor(8, 1);
       lcd.print("<-Lauf<<");
       break;
 
-    case SYS_SET :
+    case SYS_SET_SOLL :
       lcd.setCursor(8, 0);
-      lcd.print("sSET");
+      lcd.print("setSoll");
       lcd.setCursor(8, 1);
       lcd.print(phSoll);
+      break;
+
+    case SYS_SET_THRES :
+      lcd.setCursor(8, 0);
+      lcd.print("setThresh");
+      lcd.setCursor(8, 1);
+      lcd.print(phSollThres);
       break;
 
     case SYS_CAL :
@@ -275,6 +273,7 @@ void redrawLCD()
 }
 
 
+
 void incSoll()
 {
   phSoll += 0.1;
@@ -283,6 +282,16 @@ void incSoll()
 void decSoll()
 {
   phSoll += 0.1;
+  decFlag = false;
+}
+void incThres()
+{
+  phSollThres += 0.1;
+  incFlag = false;
+}
+void decThres()
+{
+  phSollThres += 0.1;
   decFlag = false;
 }
 
